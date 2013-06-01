@@ -1,5 +1,6 @@
 import uuid
 import datetime
+import logging
 
 
 class Nonce:
@@ -16,16 +17,18 @@ class Nonce:
 
 
 class NonceManager:
-    def __init__(self, collection, expiry=5, clear_stale=True):
+    def __init__(self, collection, expiry=5, clear_stale=True, logger=logging.getLogger()):
         self.collection = collection
         self.expiry = expiry
         self.clear_stale = clear_stale
         self.last_cleared = datetime.datetime.utcnow()
+        self.logger = logger
 
     def generate(self):
         self._clear_check()
         nonce = Nonce(expires=self.expiry)
         self.collection.insert({"uuid": nonce.uuid, "expires": nonce.expires}, safe=True)
+        self.logger.debug("Generated nonce: '%r'" % nonce.uuid)
         return nonce
 
     def consume(self, id):
@@ -34,22 +37,26 @@ class NonceManager:
         try:
             id = uuid.UUID(id)
         except:
-            logger.debug("%s is invalid" % id)
+            self.logger.warn("Nonce '%s' is invalid" % id)
             return False
 
         data = self.collection.find_one({"uuid": id})
         if data is None:
-            logger.debug("%r not found" % id)
+            self.logger.warn("Nonce '%r' not found" % id)
             return False
 
         nonce = Nonce(**data)
         self.collection.remove(data)
-        logger.debug("Expired: %s" % nonce.has_expired())
+
+        if nonce.has_expired():
+            self.logger.warn("Expired nonce attempted to be used: '%s'" % nonce.uuid.hex)
+
         return not nonce.has_expired()
 
     def clear_expired(self):
         expired = datetime.datetime.utcnow() + datetime.timedelta(minutes=self.expiry)
         self.collection.remove({"expires": {"$lt": expired}})
+        self.logger.info("Cleared stale nonces.")
 
     def _clear_check(self):
         if not self.clear_stale:
