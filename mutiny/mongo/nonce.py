@@ -50,6 +50,8 @@ class NonceManager:
 
         if nonce.has_expired():
             self.logger.warn("Expired nonce attempted to be used: '%s'" % nonce.uuid.hex)
+        else:
+            self.logger.debug("Nonce '%s' successfully consumed." % nonce.uuid.hex)
 
         return not nonce.has_expired()
 
