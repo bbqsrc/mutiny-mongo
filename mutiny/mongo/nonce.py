@@ -28,7 +28,7 @@ class NonceManager:
         self._clear_check()
         nonce = Nonce(expires=self.expiry)
         self.collection.insert({"uuid": nonce.uuid, "expires": nonce.expires}, safe=True)
-        self.logger.debug("Generated nonce: '%r'" % nonce.uuid)
+        self.logger.debug("Generated nonce: %s" % nonce.uuid.hex)
         return nonce
 
     def consume(self, id):
@@ -42,7 +42,7 @@ class NonceManager:
 
         data = self.collection.find_one({"uuid": id})
         if data is None:
-            self.logger.warn("Nonce '%r' not found" % id)
+            self.logger.warn("Nonce '%s' not found" % id.hex)
             return False
 
         nonce = Nonce(**data)
